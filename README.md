@@ -10,6 +10,8 @@ This repository contains:
 Install:
 - Clone this repository
 - Install [Tampermonkey](https://www.tampermonkey.net) in your browser
+- If you're using Chrome, enable the "Allow User Scripts" option in the Extensions
+  configuration for Tampermonkey
 - Click on Extensions in the toolbar, select Tampermonkey, click Dashboard icon
 - Click on the Utilities tab, look for "Import from File" section, and click the "Browse..." button
 - Select the `costco_orders.js` file
