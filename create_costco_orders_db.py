@@ -8,6 +8,7 @@ def calculate_adjusted_amount(item: Dict, items: List[Dict]):
     needle = f"/{item['itemNumber']}"
     discount = [i for i in items if i["itemDescription01"] == needle]
     if len(discount) > 0:
+        assert len(discount) == 1
         assert discount[0]["amount"] < 0
         return float(Decimal(item["amount"]) + Decimal(discount[0]["amount"]))
     return item["amount"]
@@ -29,7 +30,9 @@ def load_json_into_db(inputfile: str, outputfile: str):
 
     # determine fields
     receipt_fields = set()
-    item_fields = set(["transactionBarcode", "adjustedAmount"])
+    item_fields = set(
+        ["transactionBarcode", "adjustedAmount", "adjustedItemUnitPriceAmount"]
+    )
     tender_fields = set(["transactionBarcode"])
     subtaxes_fields = set(["transactionBarcode"])
 
@@ -76,6 +79,9 @@ def load_json_into_db(inputfile: str, outputfile: str):
             item["adjustedAmount"] = calculate_adjusted_amount(
                 item, receipt["itemArray"]
             )
+            item["adjustedItemUnitPriceAmount"] = float(
+                Decimal(item["adjustedAmount"]) / Decimal(item["unit"])
+            )
             items_to_insert.append([item.get(f) for f in item_fields])
         for tender in receipt["tenderArray"]:
             tender["transactionBarcode"] = barcode
@@ -104,41 +110,3 @@ def load_json_into_db(inputfile: str, outputfile: str):
 
 if __name__ == "__main__":
     load_json_into_db("costco_orders_data.json", "costco_orders.db")
-
-"""
-with t as (
-  select 
-    itemNumber,
-    count(*) as total,
-    min(amount) as min_amount,
-    max(amount) as max_amount
-  from item 
-  group by itemNumber
-)
-,items_with_rownum as (
-  select 
-    itemNumber,
-    itemDescription01,
-    itemDescription02,
-    row_number() over (partition by itemNumber order by itemDescription01, itemDescription02) as rownum
-  from item
-)
-, deduped as (
-  select
-    itemNumber,
-    itemDescription01,
-    itemDescription02
-  from items_with_rownum 
-  where rownum = 1
-)
-select
-    t.total,
-    t.itemNumber,
-    deduped.itemDescription01,
-    deduped.itemDescription02,
-    t.min_amount,
-    t.max_amount
-from t
-left join deduped on t.itemNumber = deduped.itemNumber 
-order by t.total desc
-"""

@@ -31,10 +31,11 @@ showing repeated purchases and min/max amount paid for them:
 with agg as (
   select
     itemNumber,
-    count(*) as total,
-    min(adjustedAmount) as minAmount,
-    max(adjustedAmount) as maxAmount
+    sum(unit) as total,
+    min(adjustedItemUnitPriceAmount) as minAmount,
+    max(adjustedItemUnitPriceAmount) as maxAmount
   from item
+  where unit > 0
   group by itemNumber
 )
 ,items_with_rownum as (
@@ -81,6 +82,7 @@ item
 - note that discounts are represented as items and have negative values
   in the `amount` field
 - the `adjustedAmount` field subtracts the discount from the `amount` field
+- the `adjustedItemUnitPriceAmount` field is `adjustedAmount` / `unit`
 
 subtax
 - represents various types of taxes calculated on the items on the receipt
