@@ -33,7 +33,48 @@ When the process is finished, you'll see a popup that says "all done!"
 
     const NUMERIC_REGEX = /(\d+)/g;
 
-    const orders = {};
+    function isStored(barcode) {
+        for (let i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if(key == `barcode_${barcode}` && localStorage.getItem(key) != null) {
+              return true;
+          }
+        }
+        return false;
+    }
+
+    function storeOrder(barcode, data) {
+        localStorage.setItem(`barcode_${barcode}`, data);
+    }
+
+    function getStoredOrders() {
+        var results = {};
+        for (let i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if(key.startsWith("barcode_")) {
+            var barcode = key.split("_")[1];
+            try {
+              results[barcode] = JSON.parse(localStorage.getItem(key));
+            } catch(error) {
+                console.log(`error with key ${key}: ${error}`);
+            }
+          }
+        }
+        return results;
+    }
+
+    function clearOrders() {
+        var keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          keys.push(localStorage.key(i));
+        }
+        for(var key of keys) {
+            if(key.startsWith("barcode_")) {
+                console.log(`removing ${key}`);
+                localStorage.removeItem(key);
+            }
+        }
+    }
 
     // patch XMLHttpRequest.open() so we can get the raw response data
     // from requests made to GraphQL endpoint
@@ -49,7 +90,7 @@ When the process is finished, you'll see a popup that says "all done!"
                             var barcode = data.data?.receiptsWithCounts?.receipts[0].transactionBarcode;
                             if(barcode) {
                                 console.log(`storing ${barcode}`);
-                                orders[barcode] = data;
+                                storeOrder(barcode, this.response);
                             } else {
                                 console.log(`no barcode found in data: ${data}`);
                             }
@@ -83,10 +124,6 @@ When the process is finished, you'll see a popup that says "all done!"
         // make sure we're viewing Warehouse orders
         Array.from(document.querySelectorAll("button.MuiTab-root")).find(el => el.textContent=="Warehouse").click();
         await new Promise(resolve => setTimeout(resolve, 2000));
-
-        // barcodes we've already stored
-        var barcodes = Object.keys(orders);
-        //console.log(`Existing barcodes = ${barcodes}`);
 
         // loop through different time periods
         const selectElement = document.querySelectorAll("select[name='Showing']")[0];
@@ -123,18 +160,24 @@ When the process is finished, you'll see a popup that says "all done!"
 
                 const viewButtons = document.querySelectorAll('button[automation-id="ViewInWareHouseReciept"]');
                 for (let button of viewButtons) {
-                    button.click();
-                    try {
-                        await waitForElement('button[aria-label="Close"]', 10000);
+                    var describedBy = button.getAttribute("aria-describedby");
+                    var barcode = describedBy.split("_")[1];
+                    if(!isStored(barcode)) {
+                        button.click();
+                        try {
+                            await waitForElement('button[aria-label="Close"]', 10000);
 
-                        // Close the popup
-                        const closeButton = document.querySelector('button[aria-label="Close"]');
-                        if (closeButton) closeButton.click();
+                            // Close the popup
+                            const closeButton = document.querySelector('button[aria-label="Close"]');
+                            if (closeButton) closeButton.click();
 
-                        // Wait for the popup to close
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                    } catch (error) {
-                        console.error('Error closing modal:', error);
+                            // Wait for the popup to close
+                            await new Promise(resolve => setTimeout(resolve, 2000));
+                        } catch (error) {
+                            console.error('Error closing modal:', error);
+                        }
+                    } else {
+                        console.log(`already in storage, skipping: ${barcode}`);
                     }
                 }
             }
@@ -143,7 +186,8 @@ When the process is finished, you'll see a popup that says "all done!"
     }
 
     function downloadJson() {
-        if(Object.keys(orders).length > 0) {
+        if(localStorage.length > 0) {
+            var orders = getStoredOrders();
             var a = document.createElement("a");
             document.body.appendChild(a);
             a.style = "display: none";
@@ -197,6 +241,28 @@ When the process is finished, you'll see a popup that says "all done!"
         });
 
         document.body.appendChild(fetchButton);
+
+        const clearButton = document.createElement('button');
+        clearButton.textContent = 'Clear stored orders';
+        clearButton.addEventListener('click', async function() {
+            clearButton.textContent = 'Working, hang on...';
+            clearButton.disabled = true;
+            clearOrders();
+            alert("all done!");
+        });
+
+        Object.assign(clearButton.style, buttonStyle, { top: '100px', right: '20px' });
+
+        clearButton.addEventListener('mouseover', function() {
+            this.style.backgroundColor = '#f57c00';
+            this.style.boxShadow = '0 6px 12px rgba(0,0,0,0.2)';
+        });
+        clearButton.addEventListener('mouseout', function() {
+            this.style.backgroundColor = '#ff9800';
+            this.style.boxShadow = '0 4px 8px rgba(0,0,0,0.1)';
+        });
+
+        document.body.appendChild(clearButton);
     }
 
     patchXMLHttpRequest();
