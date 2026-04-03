@@ -87,12 +87,19 @@ When the process is finished, you'll see a popup that says "all done!"
                         if(request.readyState === XMLHttpRequest.DONE) {
                             //console.log(`THIS=${this.response}`);
                             var data = JSON.parse(this.response);
-                            var barcode = data.data?.receiptsWithCounts?.receipts[0].transactionBarcode;
-                            if(barcode) {
-                                console.log(`storing ${barcode}`);
-                                storeOrder(barcode, this.response);
-                            } else {
-                                console.log(`no barcode found in data: ${data}`);
+                            var receipts = data.data?.receiptsWithCounts?.receipts;
+                            // we only want the requests for the single receipt view
+                            // (exactly 1 receipt), not the list view of receipts.
+                            // it'd be better to determine this using the POST data
+                            // but that's more difficult to get
+                            if(receipts && receipts.length == 1) {
+                                var barcode = receipts[0].transactionBarcode;
+                                if(barcode) {
+                                    console.log(`storing ${barcode}`);
+                                    storeOrder(barcode, this.response);
+                                } else {
+                                    console.log(`no barcode found in data: ${data}`);
+                                }
                             }
                         }
                     }, false);
